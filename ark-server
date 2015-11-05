@@ -1,0 +1,139 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start daemon at boot time
+# Description:       Enable service provided by daemon.
+### END INIT INFO
+
+cmd="/home/steam/ark-server/ShooterGame/Binaries/Linux/server_start.sh"
+user="steam"
+backupdir="/backup"
+msgcmd="/home/steam/scripts/msg.sh"
+updcmd="/home/steam/scripts/update.sh"
+
+name=`basename $0`
+pid_file="/var/run/$name.pid"
+stdout_log="/var/log/$name.log"
+stderr_log="/var/log/$name.err"
+
+get_pid() {
+    cat "$pid_file"
+}
+
+is_running() {
+    [ -f "$pid_file" ] && ps `get_pid` > /dev/null 2>&1
+}
+
+case "$1" in
+    start)
+    if is_running; then
+        echo "Already started"
+    else
+        echo "Starting $name"
+        if [ -z "$user" ]; then
+            sudo $cmd >> "$stdout_log" 2>> "$stderr_log" &
+        else
+            sudo su - "$user" $cmd >> "$stdout_log" 2>> "$stderr_log" &
+        fi
+        echo $! > "$pid_file"
+        if ! is_running; then
+            echo "Unable to start, see $stdout_log and $stderr_log"
+            exit 1
+        fi
+    fi
+    ;;
+    stop)
+    if is_running; then
+        echo -n "Stopping $name.."
+	$msgcmd "Der Server wird in 1 minute heruntergefahren" >> /dev/null
+	sleep 30
+	$msgcmd "Der Server wird in 30 sekunden heruntergefahren" >> /dev/null
+	sleep 20
+	$msgcmd "Der Server wird in 10 sekunden heruntergefahren" >> /dev/null
+	sleep 10
+	$msgcmd "Der Server wird heruntergefahren" >> /dev/null
+        #kill `get_pid`
+	killall "ShooterGameServer"
+	sleep 1
+	killall "ShooterGameServer"
+        for i in {1..10}
+        do
+            if ! is_running; then
+                break
+            fi
+
+            echo -n "."
+            sleep 1
+        done
+        echo
+
+        if is_running; then
+            echo "Not stopped; may still be shutting down or shutdown may have failed"
+            exit 1
+        else
+            echo "Stopped"
+            if [ -f "$pid_file" ]; then
+                rm "$pid_file"
+            fi
+        fi
+    else
+        echo "Not running"
+    fi
+    ;;
+    restart)
+    $msgcmd "Der Server wird in 1 minute neugestartet" >> /dev/null
+    sleep 30
+    $msgcmd "Der Server wird in 30 sekunden neugestartet" >> /dev/null
+    sleep 20
+    $msgcmd "Der Server wird in 10 sekunden neugestartet" >> /dev/null
+    sleep 10
+    $msgcmd "Der Server wird neugestartet" >> /dev/null
+    $0 stop
+    if is_running; then
+        echo "Unable to stop, will not attempt to start"
+        exit 1
+    fi
+    $0 start
+    ;;
+    status)
+    if is_running; then
+        echo "Running"
+    else
+        echo "Stopped"
+        exit 1
+    fi
+    ;;
+    update)
+        if is_running; then
+		$msgcmd "Der Server wird in 1 minute fuer die taegliche Wartung heruntergefahren. Es kann einige Minuten dauern bis der Server wieder erreichbar ist."
+		sleep 30
+		$msgcmd "Der Server wird in 30 sekunden heruntergefahren" >> /dev/null
+		sleep 20
+		$msgcmd "Der Server wird in 10 sekunden heruntergefahren" >> /dev/null
+		sleep 10
+		$msgcmd "Der Server wird heruntergefahren" >> /dev/null
+		$0 stop
+	fi
+        if [ -z "$user" ]; then
+            sudo $updcmd >> "$stdout_log" 2>> "$stderr_log" &
+        else
+            sudo su - "$user" -c $updcmd >> "$stdout_log" 2>> "$stderr_log"
+        fi
+	$0 start
+    ;;
+    backup)
+	echo -n "backing up ark-data ..."
+	tar cfz $backupdir/backup_ark_`date +%Y%m%d`.tar.gz /home/steam/ark-server/ShooterGame/Saved/  >> "$stdout_log" 2>> "$stderr_log" 
+	echo "done"
+    ;;
+    *)
+    echo "Usage: $0 {start|stop|restart|status|update|backup}"
+    exit 1
+    ;;
+esac
+
+exit 0
