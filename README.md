@@ -14,7 +14,7 @@ edit update.sh and change your install directory
 edit msg.sh and edit your rcon credentials (rcon need to be enabled via start options for arc or in GameUserSettings.ini)
 
 example cron jobs
+
 0 4 * * * /etc/init.d/ark-server backup
-# update ark-server
 50 4 * * * /home/steam/scripts/msg.sh "Der Server wird in 10 minute fuer die taegliche Wartung heruntergefahren. Es kann einige Minuten dauern bis der Server wieder erreichbar ist."
-0 5 * * * /etc/init.d/ark-se
+0 5 * * * /etc/init.d/ark-server update
